@@ -11,6 +11,8 @@ data = pd.DataFrame({
     'ParkingSpaces': [1, 1, 2, 2, 2, 3, 3, 4, 4, 5]
 })
 
+#data = pd.read_csv('/path')
+
 # Display the first few rows
 print("First few rows of the dataset:")
 print(data.head())
