@@ -1,13 +1,15 @@
 import pandas as pd
 import numpy as np
+from graphviz import Digraph
+from IPython.display import Image
 
-# New Dataset
+# Updated Dataset
 data = {
-    'Age Group': ['Young', 'Middle', 'Senior', 'Young', 'Senior', 'Middle', 'Young', 'Young', 'Senior', 'Senior', 'Middle', 'Young', 'Middle', 'Senior'],
-    'Income Level': ['High', 'Medium', 'High', 'Low', 'Low', 'High', 'Medium', 'High', 'Medium', 'Low', 'Low', 'High', 'Medium', 'High'],
-    'Family Size': ['Small', 'Small', 'Medium', 'Large', 'Small', 'Medium', 'Medium', 'Large', 'Medium', 'Large', 'Medium', 'Small', 'Large', 'Small'],
-    'Credit Score': ['Good', 'Bad', 'Good', 'Bad', 'Good', 'Good', 'Good', 'Bad', 'Bad', 'Bad', 'Good', 'Good', 'Bad', 'Good'],
-    'Purchased Car': ['Yes', 'No', 'Yes', 'No', 'No', 'Yes', 'Yes', 'No', 'No', 'No', 'No', 'Yes', 'No', 'Yes']
+    'Age': ['Youth', 'Adult', 'Senior', 'Youth', 'Senior', 'Adult', 'Youth', 'Youth', 'Senior', 'Senior', 'Adult', 'Youth', 'Adult', 'Senior'],
+    'Salary Band': ['High', 'Medium', 'High', 'Low', 'Low', 'High', 'Medium', 'High', 'Medium', 'Low', 'Low', 'High', 'Medium', 'High'],
+    'Household Size': ['Single', 'Single', 'Couple', 'Family', 'Single', 'Couple', 'Couple', 'Family', 'Couple', 'Family', 'Couple', 'Single', 'Family', 'Single'],
+    'Loan History': ['Approved', 'Rejected', 'Approved', 'Rejected', 'Approved', 'Approved', 'Approved', 'Rejected', 'Rejected', 'Rejected', 'Approved', 'Approved', 'Rejected', 'Approved'],
+    'Bought Car': ['Yes', 'No', 'Yes', 'No', 'No', 'Yes', 'Yes', 'No', 'No', 'No', 'No', 'Yes', 'No', 'Yes']
 }
 
 df = pd.DataFrame(data)
@@ -19,65 +21,43 @@ def entropy(target_col):
     return entropy
 
 # Function to calculate information gain
-def info_gain(data, split_attribute_name, target_name="Purchased Car"):
-    # Calculate the entropy of the total dataset
+def info_gain(data, split_attribute_name, target_name="Bought Car"):
     total_entropy = entropy(data[target_name])
-   
-    # Calculate the values and the corresponding counts for the split attribute
     vals, counts = np.unique(data[split_attribute_name], return_counts=True)
-   
-    # Calculate the weighted entropy
     weighted_entropy = np.sum([(counts[i]/np.sum(counts)) * entropy(data.where(data[split_attribute_name] == vals[i]).dropna()[target_name]) for i in range(len(vals))])
-   
-    # Calculate the information gain
     information_gain = total_entropy - weighted_entropy
     return information_gain
 
 # Function to build the decision tree
-def id3(data, original_data, features, target_attribute_name="Purchased Car", parent_node_class=None):
-    # If all target values have the same value, return that value
+def id3(data, original_data, features, target_attribute_name="Bought Car", parent_node_class=None):
     if len(np.unique(data[target_attribute_name])) <= 1:
         return np.unique(data[target_attribute_name])[0]
-   
-    # If the dataset is empty, return the mode target feature value in the original dataset
+
     elif len(data) == 0:
         return np.unique(original_data[target_attribute_name])[np.argmax(np.unique(original_data[target_attribute_name], return_counts=True)[1])]
-   
-    # If the feature space is empty, return the parent node target feature value
+
     elif len(features) == 0:
         return parent_node_class
-   
-    # If none of the above conditions are met, grow the tree
+
     else:
-        # Set the default value for this node
         parent_node_class = np.unique(data[target_attribute_name])[np.argmax(np.unique(data[target_attribute_name], return_counts=True)[1])]
-       
-        # Select the feature which best splits the dataset
+
         item_values = [info_gain(data, feature, target_attribute_name) for feature in features]
         best_feature_index = np.argmax(item_values)
         best_feature = features[best_feature_index]
-       
-        # Create the tree structure
+
         tree = {best_feature: {}}
-       
-        # Remove the feature with the best information gain from the feature space
         features = [i for i in features if i != best_feature]
-       
-        # Grow a branch under the root node for each possible value of the root node feature
+
         for value in np.unique(data[best_feature]):
-            value = value
             sub_data = data.where(data[best_feature] == value).dropna()
-           
-            # Call the ID3 algorithm for each branch
             subtree = id3(sub_data, original_data, features, target_attribute_name, parent_node_class)
-           
-            # Add the subtree
             tree[best_feature][value] = subtree
-       
+
         return tree
 
 # Driver code
-features = ['Age Group', 'Income Level', 'Family Size', 'Credit Score']
+features = ['Age', 'Salary Band', 'Household Size', 'Loan History']
 tree = id3(df, df, features)
 print("Decision Tree: ", tree)
 
@@ -89,12 +69,46 @@ def classify(query, tree, default='Yes'):
                 result = tree[key][query[key]]
             except:
                 return default
-           
+
             result = tree[key][query[key]]
             if isinstance(result, dict):
                 return classify(query, result)
             else:
                 return result
 
-query = {'Age Group': 'Young', 'Income Level': 'Medium', 'Family Size': 'Small', 'Credit Score': 'Good'}
+query = {'Age': 'Youth', 'Salary Band': 'Medium', 'Household Size': 'Single', 'Loan History': 'Approved'}
 print("Classification result: ", classify(query, tree))
+
+# Function to visualize the decision tree using Graphviz
+def visualize_tree(tree, graph=None, parent_node=None, parent_edge_label=None):
+    if graph is None:
+        graph = Digraph()
+        graph.attr('node', shape='ellipse')
+
+    for node, branches in tree.items():
+        if parent_node is None:
+            # Root node
+            graph.node(node)
+            parent_node = node
+        for value, subtree in branches.items():
+            child_node = f'{node}_{value}'
+            graph.node(child_node, label=value)
+            graph.edge(parent_node, child_node, label=value)
+
+            # If the subtree is a dictionary (more branches), call recursively
+            if isinstance(subtree, dict):
+                visualize_tree({node: subtree}, graph, child_node, value)
+            else:
+                # Leaf node
+                leaf_node = f'{child_node}_leaf'
+                graph.node(leaf_node, label=subtree, shape='box')
+                graph.edge(child_node, leaf_node)
+
+    return graph
+
+# Visualizing the decision tree
+tree_graph = visualize_tree(tree)
+tree_graph.render("decision_tree_new_dataset", format="png", cleanup=False)
+
+# Display the decision tree in Jupyter (or other IDEs that support image display)
+Image(filename='decision_tree_new_dataset.png')
